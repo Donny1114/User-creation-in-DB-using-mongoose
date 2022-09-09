@@ -7,7 +7,8 @@ const mongoose = require("mongoose");
 const session = require('express-session');
 const passport = require("passport");
 const passportLocalMongoose = require ("passport-local-mongoose");
-const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const GoogleStrategy = require("passport-google-oauth20").Strategy;
+const FacebookStrategy = require("passport-facebook").Strategy;
 const findOrCreate = require('mongoose-findorcreate')
 // const encrypt = require("mongoose-encryption");
 // const md5 = require("md5");
@@ -40,7 +41,8 @@ mongoose.connect("mongodb://localhost:27017/userDB")
 const userSchema = new mongoose.Schema( {
   email: String,
   password: String,
-  googleId: String
+  googleId: String,
+  facebookId: String
 });
 userSchema.plugin(passportLocalMongoose);
 userSchema.plugin(findOrCreate);
@@ -71,6 +73,7 @@ passport.deserializeUser(function(user, cb) {
   });
 });
 
+/////Google OAUTH/////
 passport.use(new GoogleStrategy({
     clientID: process.env.client_ID,
     clientSecret: process.env.CLIENT_SECRET,
@@ -82,6 +85,19 @@ passport.use(new GoogleStrategy({
       return cb(err, user);
     });
   }
+));
+
+/////Facebook OAUTH/////
+passport.use(new FacebookStrategy({
+  clientID: process.env.CLIENT_ID_FB,
+  clientSecret: process.env.CLIENT_SECRET_FB,
+  callbackURL: "http://localhost:3000/auth/facebook/callback"
+},
+function(accessToken, refreshToken, profile, cb) {
+  User.findOrCreate({ facebookId: profile.id }, function (err, user) {
+    return cb(err, user);
+  });
+}
 ));
 
 app.get("/", function(req,res){
@@ -97,6 +113,18 @@ app.get("/auth/google",
     // Successful authentication, redirect home.
     res.redirect("/secrets");
   });
+
+/////Facebook OAUTH/////
+app.get("/auth/facebook",
+  passport.authenticate('facebook'));
+
+app.get("/auth/facebook/callback",
+  passport.authenticate("facebook", { failureRedirect: "/login "}),
+  function(req, res) {
+    // Successful authentication, redirect home.
+    res.redirect("/secrets");
+  });
+
 
 app.get("/login", function(req,res){
   res.render("login");
@@ -138,20 +166,6 @@ User.register({username: req.body.username}, req.body.password, function(err, us
 });
 
   });
-//for bcryp hashing////
-//   bcrypt.hash(req.body.password, saltRounds, function(err, hash) {
-//     const newUser = new User({
-//       email: req.body.username,
-//       password: hash
-//     });
-//   newUser.save(function(err){
-//     if(err){
-//       console.log(err);
-//     }else{
-//       res.render("secrets")
-//     }
-//   });
-// });
 
 
 
@@ -173,24 +187,6 @@ app.post("/login", function(req,res){
 
 
   });
-  ////for bcrypt hashing////
-//   const username = req.body.username;
-//   const password = req.body.password;
-//   User.findOne({email: username}, function(err, foundUser){
-//     if (err){
-//       console.log(err);
-//     }else {
-//       if (foundUser){
-//         bcrypt.compare(password, foundUser.password, function(err, result) {
-//           if(result=== true){
-//           res.render("secrets");
-//           }
-//   });
-// }
-//
-//       }
-//
-//   });
 
 app.listen(3000, function(){
   console.log("Server started on port 3000.");
